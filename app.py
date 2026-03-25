@@ -168,7 +168,7 @@ elif menu == "⚙️ Gestão & Reports":
         with t_treino:
             st.subheader("Novo Treinamento")
             tit_a = st.text_input("Título do Módulo")
-            times_alvo = st.multiselect("Destinar para os times:", ["Todos", "CAC", "MBT", "BKO", "Blue Service"], default=["Todos"])
+            times_alvo = st.multiselect("Destinar para os times:", ["Todos", "0800 Voz", "0800 Chat", "RECLAME AQUI", "MIDIAS SOCIAIS", "SAC REVENDA", "E-TICKET", "BACKOFFICE", "BACKOFFICE RECALL", "LAD", "RAC & REF", "SUPORTE TÉCNICO", "MIDEA CLUB", "JIRA"], default=["Todos"])
             vid_a = st.file_uploader("Vídeo (MP4)", type=['mp4'])
             
             if 'temp_q' not in st.session_state: st.session_state.temp_q = []
