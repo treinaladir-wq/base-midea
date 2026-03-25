@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import re
 import json
+import base64
 from datetime import datetime
 from PyPDF2 import PdfReader
 import difflib
@@ -14,7 +15,7 @@ st.markdown("""
     .main { background-color: #f4f7f9; }
     .stButton>button { 
         background: linear-gradient(90deg, #005596 0%, #5c2d91 100%); 
-        color: white; border: none; font-weight: bold; border-radius: 8px;
+        color: white; border: none; font-weight: bold; border-radius: 8px; width: 100%;
     }
     h1, h2 { color: #005596; border-bottom: 2px solid #5c2d91; }
     .pop-section { background-color: #ffffff; padding: 15px; border-left: 5px solid #005596; color: #333; border-radius: 0 0 8px 8px; }
@@ -22,21 +23,25 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. GESTÃO DO FEED (Persistência Simples)
+# 2. GESTÃO DO FEED (Persistência com Imagens)
 FEED_FILE = "feed_data.json"
 
 def carregar_feed():
     if os.path.exists(FEED_FILE):
         with open(FEED_FILE, "r") as f:
             return json.load(f)
-    return [{"data": "25/03/2026", "msg": "Portal de Conhecimento Iniciado."}]
+    return [{"data": "25/03/2026", "msg": "Portal de Conhecimento Iniciado.", "img": None}]
 
-def salvar_no_feed(mensagem):
+def salvar_no_feed(mensagem, imagem_base64=None):
     feed = carregar_feed()
-    nova_entrada = {"data": datetime.now().strftime("%d/%m/%Y %H:%M"), "msg": mensagem}
-    feed.insert(0, nova_entrada)  # Adiciona no topo
+    nova_entrada = {
+        "data": datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "msg": mensagem,
+        "img": imagem_base64
+    }
+    feed.insert(0, nova_entrada)
     with open(FEED_FILE, "w") as f:
-        json.dump(feed[:20], f)  # Mantém os últimos 20 avisos
+        json.dump(feed[:25], f)  # Mantém os últimos 25 avisos
 
 # 3. FUNÇÕES DE BUSCA E PROCESSAMENTO
 def buscar_nos_arquivos(termo, pasta_docs):
@@ -99,26 +104,28 @@ if st.sidebar.button("Sair"):
 
 # --- TELA: FEED ---
 if menu == "📢 Feed da Operação":
-    st.title("📢 Comunicados Recentes")
+    st.title("📢 Comunicados e Avisos")
     for item in carregar_feed():
         with st.chat_message("user", avatar="❄️"):
             st.write(f"**[{item['data']}]**")
             st.write(item['msg'])
+            if item.get('img'):
+                st.image(item['img'], use_column_width=True)
 
 # --- TELA: WIKI ---
 elif menu == "📚 Wiki POPs":
     st.title("📚 Wiki de Processos")
-    busca = st.text_input("🔍 O que deseja encontrar?", placeholder="Ex: Ar condicionado, E-ticket...")
+    busca = st.text_input("🔍 O que deseja encontrar?")
     pasta = "documentos"
     if not os.path.exists(pasta): os.makedirs(pasta)
     
     arquivos_alvo = buscar_nos_arquivos(busca, pasta) if busca else sorted([f for f in os.listdir(pasta) if f.lower().endswith('.pdf')])
     
     if busca and not arquivos_alvo:
-        st.error(f"❌ '{busca}' não encontrado. Tente outra palavra.")
+        st.error(f"❌ '{busca}' não encontrado.")
     else:
         for arq in arquivos_alvo:
-            with st.expander(f"📂 {arq.replace('.pdf', '')}", expanded=bool(busca)):
+            with st.expander(f"📂 {arq.replace('.pdf', '')}"):
                 tab_ler, tab_dl = st.tabs(["📖 Ver Conteúdo", "📥 Download"])
                 with tab_ler: display_smart_pdf(os.path.join(pasta, arq))
                 with tab_dl:
@@ -128,26 +135,34 @@ elif menu == "📚 Wiki POPs":
 # --- TELA: GESTÃO ---
 elif menu == "⚙️ Gestão (TL/Treinamento)":
     if st.session_state.user_logado in ["admin", "treinamento"]:
-        st.title("⚙️ Painel de Atualização")
+        st.title("⚙️ Painel de Gestão")
         
-        # Subir Novo Arquivo
-        st.subheader("1. Atualizar POP")
-        upload = st.file_uploader("Selecione o PDF", type=['pdf'])
-        if upload:
-            with open(os.path.join("documentos", upload.name), "wb") as f:
-                f.write(upload.getbuffer())
-            msg = f"O arquivo '{upload.name}' foi atualizado na Wiki por {st.session_state.user_logado}."
-            salvar_no_feed(msg)
-            st.success("Arquivo salvo e aviso enviado ao Feed!")
-            st.balloons()
+        # 1. Atualizar POP
+        st.subheader("1. Atualizar/Subir POP")
+        upload_pop = st.file_uploader("Selecione o PDF", type=['pdf'], key="pop_up")
+        if upload_pop:
+            with open(os.path.join("documentos", upload_pop.name), "wb") as f:
+                f.write(upload_pop.getbuffer())
+            salvar_no_feed(f"✅ NOVO POP: O arquivo '{upload_pop.name}' foi atualizado na Wiki por {st.session_state.user_logado}.")
+            st.success("POP atualizado!")
+            st.rerun()
             
-        # Postar Comunicado Manual
         st.divider()
-        st.subheader("2. Postar Aviso Manual no Feed")
-        aviso_manual = st.text_area("Digite o comunicado para a equipe")
-        if st.button("Postar no Feed"):
-            if aviso_manual:
-                salvar_no_feed(f"COMUNICADO: {aviso_manual} (Por: {st.session_state.user_logado})")
-                st.success("Aviso postado!")
+        
+        # 2. Postar Comunicado com Imagem
+        st.subheader("2. Postar Comunicado no Feed")
+        aviso_msg = st.text_area("Texto do comunicado")
+        upload_img = st.file_uploader("Anexar Imagem (Opcional)", type=['png', 'jpg', 'jpeg'], key="img_up")
+        
+        if st.button("Publicar no Feed"):
+            img_b64 = None
+            if upload_img:
+                img_b64 = f"data:image/png;base64,{base64.b64encode(upload_img.read()).decode()}"
+            
+            if aviso_msg or img_b64:
+                salvar_no_feed(f"📣 {aviso_msg} (Por: {st.session_state.user_logado})", img_b64)
+                st.success("Comunicado publicado!")
+                st.rerun()
     else:
-        st.error("Área restrita aos perfis de Admin e Treinamento.")
+        st.error("Área restrita.")
+        
