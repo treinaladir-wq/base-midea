@@ -7,7 +7,7 @@ from datetime import datetime
 
 # --- CONFIGURAÇÃO DE ACESSO RÁPIDO (LOGO) ---
 ID_DRIVE_LOGO = "1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" 
-URL_LOGO = f"https://drive.google.com/uc?export=view&id={ID_DRIVE_LOGO}" if ID_DRIVE_LOGO else None
+URL_LOGO = "https://lh3.googleusercontent.com/d/1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" if ID_DRIVE_LOGO else None
 
 # 1. CONFIGURAÇÃO VISUAL
 st.set_page_config(page_title="Midea | Operação & Treinamento", layout="wide", page_icon="❄️")
