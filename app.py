@@ -7,27 +7,8 @@ from datetime import datetime
 
 # --- CONFIGURAÇÃO DE ACESSO RÁPIDO (LOGO) ---
 # Se quiser usar imagem no futuro, basta colar o ID do Google Drive entre as aspas.
-# Cole APENAS o ID que você extraiu do link que funcionou
 ID_DRIVE_LOGO = "1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" 
-
-# O link de visualização direta será montado automaticamente abaixo:
-# Usamos f-string para inserir o ID na URL de visualização do Google Drive.
-if ID_DRIVE_LOGO:
-    URL_LOGO = "https://lh3.googleusercontent.com/d/1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei"
-else:
-    URL_LOGO = None
-
-# Função de segurança para carregar a imagem
-def carregar_logo(url, width=250):
-    if url:
-        try:
-            st.image(url, width=width)
-        except:
-            # Se der erro de carregamento do Drive, mostra título em texto
-            st.title("❄️ Portal Midea")
-    else:
-        # Se não houver URL configurada, mostra título em texto
-        st.title("❄️ Portal Midea")
+URL_LOGO = "https://lh3.googleusercontent.com/d/1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" if ID_DRIVE_LOGO else None
 
 # 1. CONFIGURAÇÃO VISUAL
 st.set_page_config(page_title="Midea | Operação & Treinamento", layout="wide", page_icon="❄️")
@@ -69,9 +50,11 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if not st.session_state.autenticado:
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
-        # Chama a função de segurança para carregar a logo na tela de login
-        # Passamos a largura de 250 pixels.
-        carregar_logo(URL_LOGO, width=600)
+        if URL_LOGO and ID_DRIVE_LOGO:
+            st.image(URL_LOGO, width=600)
+        else:
+            st.title("❄️ Portal Midea")
+            st.subheader("Operação & Treinamento")
         
         u = st.text_input("Usuário")
         p = st.text_input("Senha", type="password")
@@ -84,17 +67,17 @@ if not st.session_state.autenticado:
     st.stop()
 
 # Define se é Gestor (TL / Treinamento)
-# Verificamos se o nome do usuário contém "_admin" ou "_treina".
 e_gestor = "_admin" in st.session_state.user_logado or "_treina" in st.session_state.user_logado
 
 # 4. MENU LATERAL
-# Chama a função de segurança para carregar a logo na barra lateral
-# Passamos a largura de 120 pixels.
-carregar_logo(URL_LOGO, width=250)
+if URL_LOGO and ID_DRIVE_LOGO:
+    st.sidebar.image(URL_LOGO, width=300)
+else:
+    st.sidebar.title("❄️ Midea")
 
-primeiro_nome = st.session_state.user_logado.split('_')[0].capitalize()
+nome_exibicao = st.session_state.user_logado.split('_')[0].capitalize()
 
-st.sidebar.markdown(f"👤 **Bem-vindo, {primeiro_nome}**")
+st.sidebar.markdown(f"👤 **Bem-vindo, {nome_exibicao}**")
 menu = st.sidebar.radio("Navegação", ["📢 Feed da Operação", "🎓 Formação Continuada", "⚙️ Gestão & Reports"])
 
 if st.sidebar.button("Sair"):
@@ -235,7 +218,7 @@ elif menu == "⚙️ Gestão & Reports":
                 res = post.get('msg', '')[:40] + "..."
                 for u_lk in post.get('curtidas_usuarios', []):
                     logs.append({"Data": post.get('data'), "Post": res, "Usuário": u_lk, "Ação": "Curtiu ❤️"})
-                for com in p.get('comentarios', []):
+                for com in post.get('comentarios', []):
                     logs.append({"Data": com.get('data'), "Post": res, "Usuário": com.get('user'), "Ação": f"Comentou: {com.get('txt')}"})
             
             if logs:
