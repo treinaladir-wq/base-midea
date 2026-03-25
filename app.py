@@ -61,7 +61,7 @@ e_gestor = "_admin" in st.session_state.user_logado or "_treina" in st.session_s
 
 # 4. NAVEGAÇÃO
 st.sidebar.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=120)
-st.sidebar.markdown(f"👤 **Bem-vindo, {st.session_state.user_logado}**")
+st.sidebar.markdown(f"👤 **Bem-vindo, {st.session_state.user_logado}, ao Portal Midea**")
 menu = st.sidebar.radio("Menu Principal", ["📢 Feed da Operação", "🎓 Formação Continuada", "📊 Gestão & Reports"])
 
 if st.sidebar.button("Sair"):
