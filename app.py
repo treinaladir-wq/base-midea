@@ -7,7 +7,7 @@ from datetime import datetime
 
 # --- CONFIGURAÇÃO DE ACESSO RÁPIDO (LOGO) ---
 ID_DRIVE_LOGO = "1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" 
-URL_LOGO = "https://lh3.googleusercontent.com/d/1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" if ID_DRIVE_LOGO else None
+URL_LOGO = f"https://drive.google.com/uc?export=view&id={ID_DRIVE_LOGO}" if ID_DRIVE_LOGO else None
 
 # 1. CONFIGURAÇÃO VISUAL
 st.set_page_config(page_title="Midea | Operação & Treinamento", layout="wide", page_icon="❄️")
@@ -66,8 +66,14 @@ if not st.session_state.autenticado:
             else: st.error("Usuário não encontrado ou formato inválido.")
     st.stop()
 
-# Definições de Perfil
-e_gestor = "_admin" in st.session_state.user_logado or "_treina" in st.session_state.user_logado
+# --- NOVA LÓGICA DE PERFIS ---
+user_id = st.session_state.user_logado.lower()
+e_admin = "_admin" in user_id
+e_treina = "_treina" in user_id or e_admin
+e_tl = "_tl" in user_id or e_admin
+# Gestor é qualquer um que possa ver a aba de Gestão
+e_gestor = e_admin or e_treina or e_tl 
+
 nome_exibicao = st.session_state.user_logado.split('_')[0].capitalize()
 meu_time = st.session_state.get('user_time', 'Geral')
 
@@ -75,7 +81,11 @@ meu_time = st.session_state.get('user_time', 'Geral')
 if URL_LOGO: st.sidebar.image(URL_LOGO, width=250)
 st.sidebar.markdown(f"👤 **Bem-vindo, {nome_exibicao}**")
 st.sidebar.caption(f"Setor: {meu_time}")
-menu = st.sidebar.radio("Navegação", ["📢 Feed da Operação", "🎓 Formação Continuada", "⚙️ Gestão & Reports"])
+
+# Menu dinâmico: Gestão só aparece para perfis autorizados
+opcoes = ["📢 Feed da Operação", "🎓 Formação Continuada"]
+if e_gestor: opcoes.append("⚙️ Gestão & Reports")
+menu = st.sidebar.radio("Navegação", opcoes)
 
 if st.sidebar.button("Sair"):
     st.session_state.autenticado = False
@@ -91,14 +101,14 @@ if menu == "📢 Feed da Operação":
             with col_txt:
                 st.write(f"📅 **{post.get('data')}**")
                 edit_key = f"edit_mode_{i}"
-                if e_gestor and st.session_state.get(edit_key):
+                if e_gestor and st.session_state.get(edit_key): # Apenas gestores editam
                     nova_msg = st.text_area("Editar postagem:", post.get('msg'), key=f"area_{i}")
                     if st.button("Salvar Alteração", key=f"save_{i}"):
                         feed[i]['msg'] = nova_msg
                         salvar_dados(feed, FEED_FILE); st.session_state[edit_key] = False; st.rerun()
                 else: st.write(post.get('msg'))
 
-            if e_gestor:
+            if e_gestor: # Apenas gestores vêem botões de edição/exclusão
                 with col_ctrl:
                     st.markdown('<div class="btn-gestao">', unsafe_allow_html=True)
                     if st.button("✏️", key=f"btn_ed_{i}"): st.session_state[edit_key] = True; st.rerun()
@@ -151,67 +161,66 @@ elif menu == "🎓 Formação Continuada":
                 salvar_dados(notas, NOTAS_FILE)
                 st.success(f"Avaliação enviada! Nota: {nota}")
 
-# --- TELA: GESTÃO & REPORTS (VOLTA PARA CSV) ---
+# --- TELA: GESTÃO & REPORTS ---
 elif menu == "⚙️ Gestão & Reports":
     if e_gestor:
-        t_feed, t_treino, t_audit = st.tabs(["📢 Novo Post", "🎓 Novo Treinamento", "📊 Auditoria & Logs"])
+        # Define quais abas aparecem para cada perfil
+        tabs_list = []
+        if e_tl or e_treina: tabs_list.append("📢 Novo Post")
+        if e_treina: tabs_list.append("🎓 Novo Treinamento")
+        if e_admin or e_tl: tabs_list.append("📊 Auditoria & Logs")
         
-        with t_feed:
-            msg_f = st.text_area("Texto do comunicado")
-            img_f = st.file_uploader("Imagem", type=['png', 'jpg'])
-            if st.button("Publicar no Feed"):
-                img_b64 = f"data:image/png;base64,{base64.b64encode(img_f.read()).decode()}" if img_f else None
-                f = carregar_dados(FEED_FILE)
-                f.insert(0, {"id": datetime.now().strftime("%Y%m%d%H%M%S"), "data": datetime.now().strftime("%d/%m/%Y %H:%M"), "msg": msg_f, "img": img_b64, "curtidas_usuarios": [], "comentarios": []})
-                salvar_dados(f, FEED_FILE); st.success("Publicado!"); st.rerun()
+        # Cria as abas dinamicamente
+        active_tabs = st.tabs(tabs_list)
+        
+        if "📢 Novo Post" in tabs_list:
+            with active_tabs[tabs_list.index("📢 Novo Post")]:
+                msg_f = st.text_area("Texto do comunicado")
+                img_f = st.file_uploader("Imagem", type=['png', 'jpg'])
+                if st.button("Publicar no Feed"):
+                    img_b64 = f"data:image/png;base64,{base64.b64encode(img_f.read()).decode()}" if img_f else None
+                    f = carregar_dados(FEED_FILE)
+                    f.insert(0, {"id": datetime.now().strftime("%Y%m%d%H%M%S"), "data": datetime.now().strftime("%d/%m/%Y %H:%M"), "msg": msg_f, "img": img_b64, "curtidas_usuarios": [], "comentarios": []})
+                    salvar_dados(f, FEED_FILE); st.success("Publicado!"); st.rerun()
 
-        with t_treino:
-            st.subheader("Novo Treinamento")
-            tit_a = st.text_input("Título do Módulo")
-            times_alvo = st.multiselect("Destinar para os times:", ["Todos", "0800 Voz", "0800 Chat", "RECLAME AQUI", "MIDIAS SOCIAIS", "SAC REVENDA", "E-TICKET", "BACKOFFICE", "BACKOFFICE RECALL", "LAD", "RAC & REF", "SUPORTE TÉCNICO", "MIDEA CLUB", "JIRA"], default=["Todos"])
-            vid_a = st.file_uploader("Vídeo (MP4)", type=['mp4'])
-            
-            if 'temp_q' not in st.session_state: st.session_state.temp_q = []
-            with st.form("pergunta_form"):
-                p_t = st.text_input("Pergunta")
-                c1, c2, c3 = st.columns(3)
-                oA, oB, oC = c1.text_input("Opção A"), c2.text_input("Opção B"), c3.text_input("Opção C")
-                corr = st.selectbox("Correta", [oA, oB, oC])
-                if st.form_submit_button("Adicionar Pergunta"):
-                    st.session_state.temp_q.append({"pergunta": p_t, "opcoes": [oA, oB, oC], "correta": corr})
-            
-            if st.button("💾 SALVAR TUDO"):
-                if tit_a and vid_a:
-                    path = os.path.join(VIDEO_DIR, vid_a.name)
-                    with open(path, "wb") as f: f.write(vid_a.getbuffer())
-                    dt = carregar_dados(TREINAMENTOS_FILE)
-                    dt.append({"titulo": tit_a, "video_path": path, "questoes": st.session_state.temp_q, "times": times_alvo})
-                    salvar_dados(dt, TREINAMENTOS_FILE); st.session_state.temp_q = []; st.success("Salvo!"); st.rerun()
+        if "🎓 Novo Treinamento" in tabs_list:
+            with active_tabs[tabs_list.index("🎓 Novo Treinamento")]:
+                st.subheader("Novo Treinamento")
+                tit_a = st.text_input("Título do Módulo")
+                times_alvo = st.multiselect("Destinar para os times:", ["Todos", "0800 Voz", "0800 Chat", "RECLAME AQUI", "MIDIAS SOCIAIS", "SAC REVENDA", "E-TICKET", "BACKOFFICE", "BACKOFFICE RECALL", "LAD", "RAC & REF", "SUPORTE TÉCNICO", "MIDEA CLUB", "JIRA"], default=["Todos"])
+                vid_a = st.file_uploader("Vídeo (MP4)", type=['mp4'])
+                
+                if 'temp_q' not in st.session_state: st.session_state.temp_q = []
+                with st.form("pergunta_form"):
+                    p_t = st.text_input("Pergunta")
+                    c1, c2, c3 = st.columns(3)
+                    oA, oB, oC = c1.text_input("Opção A"), c2.text_input("Opção B"), c3.text_input("Opção C")
+                    corr = st.selectbox("Correta", [oA, oB, oC])
+                    if st.form_submit_button("Adicionar Pergunta"):
+                        st.session_state.temp_q.append({"pergunta": p_t, "opcoes": [oA, oB, oC], "correta": corr})
+                
+                if st.button("💾 SALVAR TUDO"):
+                    if tit_a and vid_a:
+                        path = os.path.join(VIDEO_DIR, vid_a.name)
+                        with open(path, "wb") as f: f.write(vid_a.getbuffer())
+                        dt = carregar_dados(TREINAMENTOS_FILE)
+                        dt.append({"titulo": tit_a, "video_path": path, "questoes": st.session_state.temp_q, "times": times_alvo})
+                        salvar_dados(dt, TREINAMENTOS_FILE); st.session_state.temp_q = []; st.success("Salvo!"); st.rerun()
 
-        with t_audit:
-            st.subheader("📊 Relatórios em CSV")
-            
-            # Auditoria Feed
-            f_data = carregar_dados(FEED_FILE)
-            logs = []
-            for post in f_data:
-                for u_lk in post.get('curtidas_usuarios', []):
-                    logs.append({"Data": post.get('data'), "Usuário": u_lk, "Ação": "Curtiu ❤️"})
-            
-            if logs:
-                df_l = pd.DataFrame(logs)
-                # Exportação CSV com codificação para Excel ler acentos corretamente
-                csv_logs = df_l.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Baixar Interações (.csv)", csv_logs, "logs_feed.csv", "text/csv")
-            
-            st.divider()
-            
-            # Notas
-            df_n = pd.DataFrame(carregar_dados(NOTAS_FILE))
-            if not df_n.empty:
-                st.dataframe(df_n, use_container_width=True)
-                csv_notas = df_n.to_csv(index=False).encode('utf-8-sig')
-                st.download_button("📥 Baixar Notas (.csv)", csv_notas, "notas_agentes.csv", "text/csv")
-            else:
-                st.info("Nenhuma nota registrada ainda.")
-    else: st.error("Acesso restrito.")
+        if "📊 Auditoria & Logs" in tabs_list:
+            with active_tabs[tabs_list.index("📊 Auditoria & Logs")]:
+                st.subheader("📊 Relatórios em CSV")
+                
+                # Relatório de Notas (Filtro por time para TL)
+                df_n = pd.DataFrame(carregar_dados(NOTAS_FILE))
+                if not df_n.empty:
+                    if not e_admin: # Se for TL, vê apenas o seu time
+                        df_n = df_n[df_n['time'] == meu_time]
+                    
+                    st.dataframe(df_n, use_container_width=True)
+                    csv_notas = df_n.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button("📥 Baixar Notas (.csv)", csv_notas, "notas_agentes.csv", "text/csv")
+                else:
+                    st.info("Nenhuma nota registrada ainda.")
+    else: 
+        st.error("Acesso restrito.")
