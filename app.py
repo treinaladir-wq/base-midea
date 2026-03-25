@@ -51,7 +51,7 @@ if not st.session_state.autenticado:
     col1, col2, col3 = st.columns([1, 1.5, 1])
     with col2:
         if URL_LOGO and ID_DRIVE_LOGO:
-            st.image(URL_LOGO, width=250)
+            st.image(URL_LOGO, width=600)
         else:
             st.title("❄️ Portal Midea")
             st.subheader("Operação & Treinamento")
@@ -71,7 +71,7 @@ e_gestor = "_admin" in st.session_state.user_logado or "_treina" in st.session_s
 
 # 4. MENU LATERAL
 if URL_LOGO and ID_DRIVE_LOGO:
-    st.sidebar.image(URL_LOGO, width=120)
+    st.sidebar.image(URL_LOGO, width=300)
 else:
     st.sidebar.title("❄️ Midea")
 
