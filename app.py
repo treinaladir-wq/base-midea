@@ -8,7 +8,7 @@ from datetime import datetime
 # --- CONFIGURAÇÃO DE ACESSO RÁPIDO (LOGO) ---
 # Se quiser usar imagem no futuro, basta colar o ID do Google Drive entre as aspas.
 ID_DRIVE_LOGO = "" 
-URL_LOGO = f"https://drive.google.com/uc?export=view&id=1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" if ID_DRIVE_LOGO else None
+URL_LOGO = f"https://lh3.googleusercontent.com/d/1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" if ID_DRIVE_LOGO else None
 
 # 1. CONFIGURAÇÃO VISUAL
 st.set_page_config(page_title="Midea | Operação & Treinamento", layout="wide", page_icon="❄️")
