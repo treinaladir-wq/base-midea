@@ -3,29 +3,25 @@ import os
 import base64
 from PyPDF2 import PdfReader
 
-# 1. CONFIGURAÇÃO DE IDENTIDADE VISUAL HÍBRIDA (MIDEA + CONCENTRIX)
+# 1. CONFIGURAÇÃO DE IDENTIDADE VISUAL (MIDEA #005596 + CONCENTRIX #5c2d91)
 st.set_page_config(page_title="Portal Midea | Concentrix", layout="wide", page_icon="❄️")
 
 st.markdown("""
     <style>
-    /* Cores Principais */
-    :root {
-        --midea-blue: #005596;
-        --concentrix-purple: #5c2d91;
-    }
+    /* Estilização Geral */
     .main { background-color: #f4f7f9; }
     
-    /* Botões com degradê Midea/Concentrix */
+    /* Botões com degradê corporativo */
     .stButton>button { 
         background: linear-gradient(90deg, #005596 0%, #5c2d91 100%); 
-        color: white; border: none; font-weight: bold; border-radius: 8px;
+        color: white; border: none; font-weight: bold; border-radius: 8px; width: 100%;
     }
     
-    /* Títulos e Cabeçalhos */
-    h1, h2 { color: #005596; font-family: 'Arial'; }
+    /* Títulos */
+    h1, h2 { color: #005596; font-family: 'Arial'; border-bottom: 2px solid #5c2d91; padding-bottom: 10px; }
     h3 { color: #5c2d91; }
 
-    /* Customização das Abas (Tabs) */
+    /* Customização das Abas internas da Wiki */
     .stTabs [data-baseweb="tab-list"] { gap: 10px; }
     .stTabs [data-baseweb="tab"] {
         background-color: #ffffff;
@@ -36,22 +32,39 @@ st.markdown("""
     .stTabs [aria-selected="true"] { 
         background-color: #005596 !important; 
         color: white !important; 
-        border: 1px solid #005596 !important;
     }
 
-    /* Estilo do Iframe do PDF */
-    .pdf-frame { border: 3px solid #005596; border-radius: 12px; }
+    /* Caixa de Texto do POP Incorporado */
+    .pop-container {
+        background-color: white; 
+        padding: 25px; 
+        border-left: 8px solid #005596; 
+        border-radius: 8px; 
+        height: 600px; 
+        overflow-y: scroll; 
+        white-space: pre-wrap;
+        font-family: 'Segoe UI', sans-serif; 
+        color: #333; 
+        line-height: 1.8;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. FUNÇÕES DE APOIO
-def display_pdf(file_path):
-    with open(file_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700" type="application/pdf" class="pdf-frame"></iframe>'
-    st.markdown(pdf_display, unsafe_allow_html=True)
+# 2. FUNÇÃO: INCORPORAR TEXTO DO PDF NO SITE
+def display_pdf_as_text(file_path):
+    try:
+        reader = PdfReader(file_path)
+        texto_extraido = ""
+        for page in reader.pages:
+            texto_extraido += page.extract_text() + "\n" + "-"*50 + "\n"
+        
+        # HTML para a caixa de texto com rolagem
+        st.markdown(f'<div class="pop-container">{texto_extraido}</div>', unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"Erro ao processar o conteúdo do PDF: {e}")
 
-# 3. SISTEMA DE LOGIN
+# 3. SISTEMA DE SESSÃO E LOGIN
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
@@ -60,54 +73,59 @@ if not st.session_state.autenticado:
     with col2:
         st.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=250)
         st.write("---")
-        st.subheader("🔐 Acesso Restrito à Operação")
-        user = st.text_input("Usuário Concentrix / Midea")
+        st.subheader("❄️ Acesso à Base de Conhecimento")
+        user = st.text_input("Usuário (ID Concentrix/Midea)")
         pw = st.text_input("Senha", type="password")
-        if st.button("ACESSAR PORTAL"):
+        if st.button("ENTRAR NO PORTAL"):
+            # Tenta ler dos Secrets, se não houver, usa o padrão admin/midea123
             usuarios = st.secrets.get("passwords", {"admin": "midea123"})
             if user in usuarios and str(usuarios[user]) == pw:
                 st.session_state.autenticado = True
                 st.session_state.user_logado = user
                 st.rerun()
             else:
-                st.error("Erro: Usuário ou senha inválidos.")
+                st.error("Usuário ou senha incorretos.")
     st.stop()
 
-# 4. DASHBOARD PRINCIPAL (PÓS-LOGIN)
-st.sidebar.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=150)
-st.sidebar.markdown(f"**Usuário:** `{st.session_state.user_logado}`")
-menu = st.sidebar.radio("Menu Principal", ["📢 Feed de Notícias", "📚 Wiki de Processos", "⚙️ Painel Admin"])
+# 4. INTERFACE PRINCIPAL (PÓS-LOGIN)
+st.sidebar.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=140)
+st.sidebar.markdown(f"👤 **Logado como:** `{st.session_state.user_logado}`")
+st.sidebar.divider()
 
-if st.sidebar.button("Sair do Sistema"):
+menu = st.sidebar.radio("Navegação Principal", ["📢 Feed da Operação", "📚 Wiki de Processos (POPs)", "⚙️ Área do Gestor (TL)"])
+
+if st.sidebar.button("Logoff / Sair"):
     st.session_state.autenticado = False
     st.rerun()
 
-# --- TELA: FEED ---
-if menu == "📢 Feed de Notícias":
-    st.title("📢 Feed da Operação")
-    st.markdown("### Informativos Recentes")
+# --- TELA 1: FEED ---
+if menu == "📢 Feed da Operação":
+    st.title("📢 Feed de Comunicados")
+    st.markdown("### Atualizações e Notificações Importantes")
     
-    with st.chat_message("user", avatar="❄️"):
-        st.write("**⚠️ ATUALIZAÇÃO BLUE SERVICE (13/03)**")
-        st.write("O formato de atendimento para climatizadores agora aceita In-Home e Carry-In. Verifique o manual na Wiki.")
+    st.info("**⚠️ AVISO BLUE SERVICE (Março/2026):** Verifique o novo fluxo de abertura de e-tickets para climatizadores na Wiki.")
     
-    with st.chat_message("user", avatar="🟣"):
-        st.write("**⚙️ STATUS ISERVICE**")
-        st.write("Sistema operando normalmente. Backlog de tickets em queda.")
+    with st.expander("Ver histórico de comunicados", expanded=True):
+        st.write("- **13/03:** Alteração no formato de atendimento (In-Home e Carry-In).")
+        st.write("- **10/03:** Treinamento iService disponível na plataforma de E-learning.")
+    
+    st.success("✅ Sistema iService operando sem instabilidades no momento.")
 
-# --- TELA: WIKI (COM BUSCA E VISUALIZAÇÃO) ---
-elif menu == "📚 Wiki de Processos":
+# --- TELA 2: WIKI (INCORPORADA) ---
+elif menu == "📚 Wiki de Processos (POPs)":
     st.title("📚 Wiki de Conhecimento")
-    busca = st.text_input("🔍 Pesquisar em Títulos e Conteúdo dos POPs", placeholder="Ex: Climatizador, Garantia...")
+    busca = st.text_input("🔍 Pesquisar em títulos ou dentro dos textos", placeholder="Digite o que procura...")
     
     pasta = "documentos"
+    if not os.path.exists(pasta): os.makedirs(pasta)
+    
     arquivos = sorted([f for f in os.listdir(pasta) if not f.startswith('.')])
 
     if arquivos:
         for arq in arquivos:
             caminho = os.path.join(pasta, arq)
             
-            # Lógica de expansão automática na busca
+            # Lógica para expandir automaticamente se a busca bater
             expandir = False
             if busca:
                 if busca.lower() in arq.lower():
@@ -121,36 +139,38 @@ elif menu == "📚 Wiki de Processos":
                                 break
                     except: pass
 
-            # ESTRUTURA DE ABAS RECOLHIDAS (EXPANDERS)
-            with st.expander(f"📂 {arq.replace('.pdf', '')}", expanded=expandir):
-                # ABAS INTERNAS PARA CADA ITEM
-                tab_doc, tab_info = st.tabs(["📄 Visualizar Documento", "ℹ️ Detalhes e Download"])
+            # ESTRUTURA RECOLHIDA (SUSPENSA)
+            with st.expander(f"📂 {arq.replace('.pdf', '').replace('.docx', '')}", expanded=expandir):
+                tab_ler, tab_download = st.tabs(["📖 Ler no Site", "📥 Info e Download"])
                 
-                with tab_doc:
+                with tab_ler:
                     if arq.lower().endswith('.pdf'):
-                        display_pdf(caminho)
+                        st.markdown(f"#### Conteúdo extraído: {arq}")
+                        display_pdf_as_text(caminho)
                     else:
-                        st.info("Visualização rápida disponível apenas para PDFs.")
+                        st.warning("Visualização direta disponível para PDFs. Use a aba ao lado para baixar outros formatos.")
 
-                with tab_info:
-                    st.write(f"**Nome do Arquivo:** {arq}")
+                with tab_download:
+                    st.write(f"**Documento:** {arq}")
                     st.write("**Operação:** Midea Carrier / Concentrix")
                     with open(caminho, "rb") as f:
                         st.download_button(f"📥 Baixar Arquivo Original", f, file_name=arq, key=f"dl_{arq}")
     else:
-        st.warning("Nenhum documento encontrado na pasta /documentos.")
+        st.warning("Nenhum arquivo encontrado na pasta /documentos. Suba um novo no painel de gestão.")
 
-# --- TELA: ADMIN ---
-elif menu == "⚙️ Painel Admin":
+# --- TELA 3: ADMIN ---
+elif menu == "⚙️ Área do Gestor (TL)":
     if st.session_state.user_logado == "admin":
-        st.title("⚙️ Painel do Team Leader")
-        st.info("Dica: Ao subir um arquivo com o mesmo nome, o antigo é excluído automaticamente.")
+        st.title("⚙️ Painel de Gestão (Team Leader)")
+        st.subheader("Atualização da Base de Conhecimento")
         
-        upload = st.file_uploader("Upload de novo POP", type=['pdf', 'docx'])
+        st.warning("Ao realizar o upload de um arquivo com o MESMO NOME de um já existente, o sistema substituirá o antigo automaticamente.")
+        
+        upload = st.file_uploader("Selecione o novo POP (PDF ou DOCX)", type=['pdf', 'docx'])
         if upload:
             with open(os.path.join("documentos", upload.name), "wb") as f:
                 f.write(upload.getbuffer())
-            st.success("Arquivo atualizado com sucesso na base!")
+            st.success(f"O documento '{upload.name}' foi atualizado com sucesso!")
             st.balloons()
     else:
-        st.error("Acesso negado. Apenas administradores podem gerenciar arquivos.")
+        st.error("Acesso negado. Esta área é restrita aos administradores/TLs.")
