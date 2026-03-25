@@ -4,7 +4,6 @@ import json
 import base64
 import pandas as pd
 from datetime import datetime
-from io import BytesIO
 
 # --- CONFIGURAÇÃO DE ACESSO RÁPIDO (LOGO) ---
 ID_DRIVE_LOGO = "1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" 
@@ -42,12 +41,6 @@ def carregar_dados(arquivo):
 
 def salvar_dados(dados, arquivo):
     with open(arquivo, "w") as f: json.dump(dados, f)
-
-def to_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Dados')
-    return output.getvalue()
 
 # 3. SISTEMA DE LOGIN (SECRETS COM TIME)
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
@@ -133,12 +126,10 @@ if menu == "📢 Feed da Operação":
                         feed[i]['comentarios'].append({"user": st.session_state.user_logado, "txt": nc, "data": datetime.now().strftime("%d/%m/%Y %H:%M")})
                         salvar_dados(feed, FEED_FILE); st.rerun()
 
-# --- TELA: FORMAÇÃO CONTINUADA (COM FILTRO) ---
+# --- TELA: FORMAÇÃO CONTINUADA ---
 elif menu == "🎓 Formação Continuada":
     st.title("🎓 Centro de Treinamento")
     treinos = carregar_dados(TREINAMENTOS_FILE)
-    
-    # Filtro: Mostra se o time do usuário está na lista ou se é para "Todos"
     visiveis = [t for t in treinos if "Todos" in t.get('times', []) or meu_time in t.get('times', [])]
 
     if not visiveis: st.info(f"Nenhum treinamento pendente para o setor {meu_time}.")
@@ -160,7 +151,7 @@ elif menu == "🎓 Formação Continuada":
                 salvar_dados(notas, NOTAS_FILE)
                 st.success(f"Avaliação enviada! Nota: {nota}")
 
-# --- TELA: GESTÃO & REPORTS (COM EXCEL E FILTRO DE TIME) ---
+# --- TELA: GESTÃO & REPORTS (VOLTA PARA CSV) ---
 elif menu == "⚙️ Gestão & Reports":
     if e_gestor:
         t_feed, t_treino, t_audit = st.tabs(["📢 Novo Post", "🎓 Novo Treinamento", "📊 Auditoria & Logs"])
@@ -198,7 +189,8 @@ elif menu == "⚙️ Gestão & Reports":
                     salvar_dados(dt, TREINAMENTOS_FILE); st.session_state.temp_q = []; st.success("Salvo!"); st.rerun()
 
         with t_audit:
-            st.subheader("📊 Relatórios em Excel")
+            st.subheader("📊 Relatórios em CSV")
+            
             # Auditoria Feed
             f_data = carregar_dados(FEED_FILE)
             logs = []
@@ -208,11 +200,18 @@ elif menu == "⚙️ Gestão & Reports":
             
             if logs:
                 df_l = pd.DataFrame(logs)
-                st.download_button("📥 Baixar Interações (.xlsx)", to_excel(df_l), "logs_feed.xlsx")
+                # Exportação CSV com codificação para Excel ler acentos corretamente
+                csv_logs = df_l.to_csv(index=False).encode('utf-8-sig')
+                st.download_button("📥 Baixar Interações (.csv)", csv_logs, "logs_feed.csv", "text/csv")
+            
+            st.divider()
             
             # Notas
             df_n = pd.DataFrame(carregar_dados(NOTAS_FILE))
             if not df_n.empty:
                 st.dataframe(df_n, use_container_width=True)
-                st.download_button("📥 Baixar Notas (.xlsx)", to_excel(df_n), "notas_agentes.xlsx")
+                csv_notas = df_n.to_csv(index=False).encode('utf-8-sig')
+                st.download_button("📥 Baixar Notas (.csv)", csv_notas, "notas_agentes.csv", "text/csv")
+            else:
+                st.info("Nenhuma nota registrada ainda.")
     else: st.error("Acesso restrito.")
