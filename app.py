@@ -50,7 +50,6 @@ if not st.session_state.autenticado:
     with col2:
         if URL_LOGO: st.image(URL_LOGO, width=400)
         else: st.title("❄️ Portal Midea")
-        
         u = st.text_input("Usuário (nome_matricula)")
         p = st.text_input("Senha", type="password")
         if st.button("ACESSAR PORTAL"):
@@ -66,12 +65,11 @@ if not st.session_state.autenticado:
             else: st.error("Usuário não encontrado ou formato inválido.")
     st.stop()
 
-# --- NOVA LÓGICA DE PERFIS ---
+# --- LÓGICA DE PERFIS ---
 user_id = st.session_state.user_logado.lower()
 e_admin = "_admin" in user_id
 e_treina = "_treina" in user_id or e_admin
 e_tl = "_tl" in user_id or e_admin
-# Gestor é qualquer um que possa ver a aba de Gestão
 e_gestor = e_admin or e_treina or e_tl 
 
 nome_exibicao = st.session_state.user_logado.split('_')[0].capitalize()
@@ -82,7 +80,6 @@ if URL_LOGO: st.sidebar.image(URL_LOGO, width=250)
 st.sidebar.markdown(f"👤 **Bem-vindo, {nome_exibicao}**")
 st.sidebar.caption(f"Setor: {meu_time}")
 
-# Menu dinâmico: Gestão só aparece para perfis autorizados
 opcoes = ["📢 Feed da Operação", "🎓 Formação Continuada"]
 if e_gestor: opcoes.append("⚙️ Gestão & Reports")
 menu = st.sidebar.radio("Navegação", opcoes)
@@ -101,14 +98,14 @@ if menu == "📢 Feed da Operação":
             with col_txt:
                 st.write(f"📅 **{post.get('data')}**")
                 edit_key = f"edit_mode_{i}"
-                if e_gestor and st.session_state.get(edit_key): # Apenas gestores editam
+                if e_gestor and st.session_state.get(edit_key):
                     nova_msg = st.text_area("Editar postagem:", post.get('msg'), key=f"area_{i}")
                     if st.button("Salvar Alteração", key=f"save_{i}"):
                         feed[i]['msg'] = nova_msg
                         salvar_dados(feed, FEED_FILE); st.session_state[edit_key] = False; st.rerun()
                 else: st.write(post.get('msg'))
 
-            if e_gestor: # Apenas gestores vêem botões de edição/exclusão
+            if e_gestor:
                 with col_ctrl:
                     st.markdown('<div class="btn-gestao">', unsafe_allow_html=True)
                     if st.button("✏️", key=f"btn_ed_{i}"): st.session_state[edit_key] = True; st.rerun()
@@ -164,13 +161,11 @@ elif menu == "🎓 Formação Continuada":
 # --- TELA: GESTÃO & REPORTS ---
 elif menu == "⚙️ Gestão & Reports":
     if e_gestor:
-        # Define quais abas aparecem para cada perfil
         tabs_list = []
         if e_tl or e_treina: tabs_list.append("📢 Novo Post")
         if e_treina: tabs_list.append("🎓 Novo Treinamento")
         if e_admin or e_tl: tabs_list.append("📊 Auditoria & Logs")
         
-        # Cria as abas dinamicamente
         active_tabs = st.tabs(tabs_list)
         
         if "📢 Novo Post" in tabs_list:
@@ -211,12 +206,30 @@ elif menu == "⚙️ Gestão & Reports":
             with active_tabs[tabs_list.index("📊 Auditoria & Logs")]:
                 st.subheader("📊 Relatórios em CSV")
                 
-                # Relatório de Notas (Filtro por time para TL)
+                # --- LOGS DO FEED (RECOLOCADO AQUI) ---
+                f_data = carregar_dados(FEED_FILE)
+                logs_feed = []
+                for post in f_data:
+                    for u_lk in post.get('curtidas_usuarios', []):
+                        logs_feed.append({"Data": post.get('data'), "Usuário": u_lk, "Ação": "Curtiu ❤️", "Post": post.get('msg')[:30]+"..."})
+                
+                if logs_feed:
+                    df_l = pd.DataFrame(logs_feed)
+                    # Se for TL, vê apenas interações do seu time (opcional, aqui deixei geral conforme original)
+                    st.write("📈 Interações no Feed")
+                    st.dataframe(df_l, use_container_width=True)
+                    csv_logs = df_l.to_csv(index=False).encode('utf-8-sig')
+                    st.download_button("📥 Baixar Interações (.csv)", csv_logs, "logs_feed.csv", "text/csv")
+                
+                st.divider()
+
+                # --- LOGS DE NOTAS ---
                 df_n = pd.DataFrame(carregar_dados(NOTAS_FILE))
                 if not df_n.empty:
-                    if not e_admin: # Se for TL, vê apenas o seu time
+                    if not e_admin: # Filtro de time para TL
                         df_n = df_n[df_n['time'] == meu_time]
                     
+                    st.write("📝 Notas dos Agentes")
                     st.dataframe(df_n, use_container_width=True)
                     csv_notas = df_n.to_csv(index=False).encode('utf-8-sig')
                     st.download_button("📥 Baixar Notas (.csv)", csv_notas, "notas_agentes.csv", "text/csv")
