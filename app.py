@@ -1,145 +1,156 @@
 import streamlit as st
 import os
-import pandas as pd
+import base64
 from PyPDF2 import PdfReader
 
-# 1. CONFIGURAÇÃO DE IDENTIDADE VISUAL MIDEA CARRIER
-st.set_page_config(page_title="Base de Conhecimento Midea", layout="wide", page_icon="❄️")
+# 1. CONFIGURAÇÃO DE IDENTIDADE VISUAL HÍBRIDA (MIDEA + CONCENTRIX)
+st.set_page_config(page_title="Portal Midea | Concentrix", layout="wide", page_icon="❄️")
 
-# CSS para cores corporativas (Azul Midea #005596)
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { background-color: #005596; color: white; border: none; padding: 10px 20px; border-radius: 5px; }
-    .stTextInput>div>div>input { border-color: #005596; }
-    h1, h2, h3 { color: #005596; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; }
-    .stTabs [data-baseweb="tab"] { 
-        background-color: #e9ecef; 
-        border-radius: 4px 4px 0px 0px; 
-        padding: 10px 20px;
-        color: #495057;
+    /* Cores Principais */
+    :root {
+        --midea-blue: #005596;
+        --concentrix-purple: #5c2d91;
     }
-    .stTabs [aria-selected="true"] { background-color: #005596 !important; color: white !important; }
+    .main { background-color: #f4f7f9; }
+    
+    /* Botões com degradê Midea/Concentrix */
+    .stButton>button { 
+        background: linear-gradient(90deg, #005596 0%, #5c2d91 100%); 
+        color: white; border: none; font-weight: bold; border-radius: 8px;
+    }
+    
+    /* Títulos e Cabeçalhos */
+    h1, h2 { color: #005596; font-family: 'Arial'; }
+    h3 { color: #5c2d91; }
+
+    /* Customização das Abas (Tabs) */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #ffffff;
+        border: 1px solid #ddd;
+        border-radius: 5px 5px 0 0;
+        padding: 8px 15px;
+    }
+    .stTabs [aria-selected="true"] { 
+        background-color: #005596 !important; 
+        color: white !important; 
+        border: 1px solid #005596 !important;
+    }
+
+    /* Estilo do Iframe do PDF */
+    .pdf-frame { border: 3px solid #005596; border-radius: 12px; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. GESTÃO DE USUÁRIOS VIA STREAMLIT SECRETS
-# No Streamlit Cloud, vá em Settings > Secrets e adicione:
-# [passwords]
-# admin = "sua_senha"
-# operador = "outra_senha"
+# 2. FUNÇÕES DE APOIO
+def display_pdf(file_path):
+    with open(file_path, "rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700" type="application/pdf" class="pdf-frame"></iframe>'
+    st.markdown(pdf_display, unsafe_allow_html=True)
 
-def verificar_login():
-    if "passwords" in st.secrets:
-        usuarios = st.secrets["passwords"]
-    else:
-        # Usuário padrão caso os Secrets não estejam configurados ainda
-        usuarios = {"admin": "midea2026"}
+# 3. SISTEMA DE LOGIN
+if 'autenticado' not in st.session_state:
+    st.session_state.autenticado = False
 
-    st.sidebar.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=150)
-    st.sidebar.title("Acesso Restrito")
+if not st.session_state.autenticado:
+    col1, col2, col3 = st.columns([1, 1.5, 1])
+    with col2:
+        st.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=250)
+        st.write("---")
+        st.subheader("🔐 Acesso Restrito à Operação")
+        user = st.text_input("Usuário Concentrix / Midea")
+        pw = st.text_input("Senha", type="password")
+        if st.button("ACESSAR PORTAL"):
+            usuarios = st.secrets.get("passwords", {"admin": "midea123"})
+            if user in usuarios and str(usuarios[user]) == pw:
+                st.session_state.autenticado = True
+                st.session_state.user_logado = user
+                st.rerun()
+            else:
+                st.error("Erro: Usuário ou senha inválidos.")
+    st.stop()
+
+# 4. DASHBOARD PRINCIPAL (PÓS-LOGIN)
+st.sidebar.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=150)
+st.sidebar.markdown(f"**Usuário:** `{st.session_state.user_logado}`")
+menu = st.sidebar.radio("Menu Principal", ["📢 Feed de Notícias", "📚 Wiki de Processos", "⚙️ Painel Admin"])
+
+if st.sidebar.button("Sair do Sistema"):
+    st.session_state.autenticado = False
+    st.rerun()
+
+# --- TELA: FEED ---
+if menu == "📢 Feed de Notícias":
+    st.title("📢 Feed da Operação")
+    st.markdown("### Informativos Recentes")
     
-    user = st.sidebar.text_input("Usuário", key="user_input")
-    pw = st.sidebar.text_input("Senha", type="password", key="pw_input")
+    with st.chat_message("user", avatar="❄️"):
+        st.write("**⚠️ ATUALIZAÇÃO BLUE SERVICE (13/03)**")
+        st.write("O formato de atendimento para climatizadores agora aceita In-Home e Carry-In. Verifique o manual na Wiki.")
     
-    if user in usuarios and str(usuarios[user]) == pw:
-        return True, user
-    elif user:
-        st.sidebar.error("Credenciais inválidas.")
-    return False, None
+    with st.chat_message("user", avatar="🟣"):
+        st.write("**⚙️ STATUS ISERVICE**")
+        st.write("Sistema operando normalmente. Backlog de tickets em queda.")
 
-autenticado, user_logado = verificar_login()
-
-if autenticado:
-    st.title("❄️ Portal de Conhecimento - Operação Midea Carrier")
+# --- TELA: WIKI (COM BUSCA E VISUALIZAÇÃO) ---
+elif menu == "📚 Wiki de Processos":
+    st.title("📚 Wiki de Conhecimento")
+    busca = st.text_input("🔍 Pesquisar em Títulos e Conteúdo dos POPs", placeholder="Ex: Climatizador, Garantia...")
     
-    # 3. FEED DE COMUNICADOS (Área de Avisos)
-    st.subheader("📢 Feed de Atualizações")
-    # Dica: Você pode transformar isso em um arquivo .txt no GitHub para atualizar remotamente
-    with st.container():
-        st.info("**Aviso:** Atualização nos protocolos de atendimento Blue Service disponível abaixo.")
-        st.caption("Postado em: 25/03/2026")
-
-    st.divider()
-
-    # 4. SISTEMA DE BUSCA (Título e Conteúdo do Texto)
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        busca = st.text_input("🔍 O que você procura? (Busca em títulos e dentro dos arquivos)", placeholder="Ex: Ar condicionado, Garantia, iService...")
-
-    # 5. GERENCIAMENTO DE ARQUIVOS
-    pasta_docs = "documentos"
-    if not os.path.exists(pasta_docs):
-        os.makedirs(pasta_docs)
-
-    arquivos = sorted([f for f in os.listdir(pasta_docs) if not f.startswith('.')])
+    pasta = "documentos"
+    arquivos = sorted([f for f in os.listdir(pasta) if not f.startswith('.')])
 
     if arquivos:
-        st.write(f"Exibindo {len(arquivos)} documentos disponíveis:")
-        
-        # Criação automática de abas baseada nos arquivos
-        tabs = st.tabs([f"📄 {arq.replace('.pdf', '').replace('.docx', '')}" for arq in arquivos])
-        
-        for i, arq in enumerate(arquivos):
-            caminho = os.path.join(pasta_docs, arq)
-            encontrado_no_texto = False
-            conteudo_preview = ""
+        for arq in arquivos:
+            caminho = os.path.join(pasta, arq)
+            
+            # Lógica de expansão automática na busca
+            expandir = False
+            if busca:
+                if busca.lower() in arq.lower():
+                    expandir = True
+                elif arq.lower().endswith('.pdf'):
+                    try:
+                        reader = PdfReader(caminho)
+                        for page in reader.pages:
+                            if busca.lower() in page.extract_text().lower():
+                                expandir = True
+                                break
+                    except: pass
 
-            # Lógica de Busca dentro de PDF
-            if busca and arq.lower().endswith('.pdf'):
-                try:
-                    reader = PdfReader(caminho)
-                    texto_completo = ""
-                    for page in reader.pages:
-                        texto_completo += page.extract_text()
-                    
-                    if busca.lower() in texto_completo.lower():
-                        encontrado_no_texto = True
-                except Exception as e:
-                    pass
-
-            with tabs[i]:
-                # Destaque se a busca bater com o título ou conteúdo
-                if busca:
-                    if busca.lower() in arq.lower() or encontrado_no_texto:
-                        st.success(f"🎯 Termo '{busca}' localizado neste documento!")
-                    else:
-                        st.warning("Termo não encontrado neste item.")
-
-                st.write(f"**Nome Técnico:** {arq}")
+            # ESTRUTURA DE ABAS RECOLHIDAS (EXPANDERS)
+            with st.expander(f"📂 {arq.replace('.pdf', '')}", expanded=expandir):
+                # ABAS INTERNAS PARA CADA ITEM
+                tab_doc, tab_info = st.tabs(["📄 Visualizar Documento", "ℹ️ Detalhes e Download"])
                 
-                with open(caminho, "rb") as f:
-                    st.download_button(
-                        label=f"📥 Baixar {arq}",
-                        data=f,
-                        file_name=arq,
-                        mime="application/octet-stream",
-                        key=f"btn_{i}"
-                    )
+                with tab_doc:
+                    if arq.lower().endswith('.pdf'):
+                        display_pdf(caminho)
+                    else:
+                        st.info("Visualização rápida disponível apenas para PDFs.")
 
-    # 6. PAINEL DO TEAM LEADER (ADMIN)
-    if user_logado == "admin":
-        st.sidebar.divider()
-        st.sidebar.subheader("⚙️ Painel de Gestão (TL)")
+                with tab_info:
+                    st.write(f"**Nome do Arquivo:** {arq}")
+                    st.write("**Operação:** Midea Carrier / Concentrix")
+                    with open(caminho, "rb") as f:
+                        st.download_button(f"📥 Baixar Arquivo Original", f, file_name=arq, key=f"dl_{arq}")
+    else:
+        st.warning("Nenhum documento encontrado na pasta /documentos.")
+
+# --- TELA: ADMIN ---
+elif menu == "⚙️ Painel Admin":
+    if st.session_state.user_logado == "admin":
+        st.title("⚙️ Painel do Team Leader")
+        st.info("Dica: Ao subir um arquivo com o mesmo nome, o antigo é excluído automaticamente.")
         
-        upload = st.sidebar.file_uploader("Atualizar/Subir POP", type=['pdf', 'docx'])
-        
+        upload = st.file_uploader("Upload de novo POP", type=['pdf', 'docx'])
         if upload:
-            # Lógica de substituição automática
-            # Se subir "Manual.pdf" e já existir "Manual.pdf", o novo sobrescreve o antigo no Python
-            caminho_novo = os.path.join(pasta_docs, upload.name)
-            
-            with open(caminho_novo, "wb") as f:
+            with open(os.path.join("documentos", upload.name), "wb") as f:
                 f.write(upload.getbuffer())
-            
-            st.sidebar.success(f"Arquivo '{upload.name}' atualizado com sucesso!")
-            st.rerun()
-
-        # Botão para limpar busca
-        if st.sidebar.button("Limpar Filtros"):
-            st.rerun()
-
-else:
-    st.info("Aguardando login para liberar acesso à base de conhecimento da Concentrix / Midea.")
-    st.image("https://www.midea.com/content/dam/midea-aem/br/midea-carrier/sobre-nos/banner-sobre-nos-desktop.jpg")
+            st.success("Arquivo atualizado com sucesso na base!")
+            st.balloons()
+    else:
+        st.error("Acesso negado. Apenas administradores podem gerenciar arquivos.")
