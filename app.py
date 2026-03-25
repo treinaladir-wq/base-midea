@@ -5,8 +5,8 @@ import base64
 import pandas as pd
 from datetime import datetime
 
-# 1. CONFIGURAÇÃO VISUAL (Padrão Midea/Concentrix)
-st.set_page_config(page_title="Midea | Formação Continuada", layout="wide", page_icon="🎓")
+# 1. CONFIGURAÇÃO VISUAL
+st.set_page_config(page_title="Midea | Formação & Operação", layout="wide", page_icon="❄️")
 
 st.markdown("""
     <style>
@@ -15,15 +15,15 @@ st.markdown("""
         background: linear-gradient(90deg, #005596 0%, #5c2d91 100%); 
         color: white; border: none; font-weight: bold; border-radius: 8px; width: 100%;
     }
-    .btn-gestao>div>button { background: #6c757d !important; color: white !important; height: 32px; font-size: 12px; margin-bottom: 5px;}
-    .btn-perigo>div>button { background: #d9534f !important; color: white !important; height: 32px; font-size: 12px; }
+    .btn-gestao>div>button { background: #6c757d !important; color: white !important; height: 32px; font-size: 11px; margin-bottom: 5px;}
+    .btn-perigo>div>button { background: #d9534f !important; color: white !important; height: 32px; font-size: 11px; }
     .comment-box { background-color: #f8f9fa; padding: 8px; border-radius: 5px; margin-top: 5px; border-left: 3px solid #5c2d91; font-size: 0.9em; }
-    h1, h2, h3 { color: #005596; }
-    .stExpander { border: 1px solid #e6e6e6; border-radius: 8px !important; margin-bottom: 10px; }
+    h1, h2, h3 { color: #005596; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+    .stExpander { border: 1px solid #e6e6e6; border-radius: 8px !important; margin-bottom: 10px; background-color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. PERSISTÊNCIA E DIRETÓRIOS
+# 2. BANCO DE DADOS E PASTAS
 FEED_FILE = "feed_data.json"
 TREINAMENTOS_FILE = "treinamentos.json"
 NOTAS_FILE = "notas_provas.json"
@@ -39,7 +39,7 @@ def carregar_dados(arquivo):
 def salvar_dados(dados, arquivo):
     with open(arquivo, "w") as f: json.dump(dados, f)
 
-# 3. LOGIN E PERMISSÕES
+# 3. LOGIN
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 
 if not st.session_state.autenticado:
@@ -48,21 +48,21 @@ if not st.session_state.autenticado:
         st.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=250)
         u = st.text_input("Usuário")
         p = st.text_input("Senha", type="password")
-        if st.button("ACESSAR SISTEMA"):
+        if st.button("ACESSAR PORTAL"):
             users = st.secrets.get("passwords", {"admin": "midea123"})
             if u in users and str(users[u]) == p:
                 st.session_state.autenticado, st.session_state.user_logado = True, u
                 st.rerun()
-            else: st.error("Usuário ou senha incorretos.")
+            else: st.error("Credenciais inválidas.")
     st.stop()
 
-# Identifica se é Gestor (Admin ou Treinamento) pelo sufixo no nome
+# Permissão por sufixo para TLs e Treinamento
 e_gestor = "_admin" in st.session_state.user_logado or "_treina" in st.session_state.user_logado
 
-# 4. MENU LATERAL
+# 4. NAVEGAÇÃO
 st.sidebar.image("https://www.mideacarrier.com.br/wp-content/themes/midea-carrier/assets/img/logo-midea-carrier.png", width=120)
-st.sidebar.write(f"👤 **{st.session_state.user_logado}**")
-menu = st.sidebar.radio("Navegação", ["📢 Feed da Operação", "🎓 Formação Continuada", "⚙️ Gestão & Reports"])
+st.sidebar.markdown(f"👤 **Bem-vindo, {st.session_state.user_logado}**")
+menu = st.sidebar.radio("Menu Principal", ["📢 Feed da Operação", "🎓 Formação Continuada", "📊 Gestão & Reports"])
 
 if st.sidebar.button("Sair"):
     st.session_state.autenticado = False
@@ -70,7 +70,7 @@ if st.sidebar.button("Sair"):
 
 # --- TELA: FEED ---
 if menu == "📢 Feed da Operação":
-    st.title("📢 Comunicados")
+    st.title("📢 Feed de Comunicados")
     feed = carregar_dados(FEED_FILE)
     
     for i, post in enumerate(feed):
@@ -78,117 +78,143 @@ if menu == "📢 Feed da Operação":
             col_txt, col_ctrl = st.columns([0.8, 0.2])
             
             with col_txt:
-                st.write(f"**[{post.get('data')}]**")
+                st.write(f"📅 **{post.get('data')}**")
                 edit_key = f"edit_mode_{i}"
                 if e_gestor and st.session_state.get(edit_key):
-                    nova_msg = st.text_area("Editar mensagem:", post.get('msg'), key=f"area_{i}")
-                    if st.button("Salvar Alteração", key=f"save_{i}"):
+                    nova_msg = st.text_area("Editar postagem:", post.get('msg'), key=f"area_{i}")
+                    if st.button("Atualizar", key=f"save_{i}"):
                         feed[i]['msg'] = nova_msg
-                        salvar_dados(feed, FEED_FILE)
-                        st.session_state[edit_key] = False
-                        st.rerun()
+                        salvar_dados(feed, FEED_FILE); st.session_state[edit_key] = False; st.rerun()
                 else:
                     st.write(post.get('msg'))
 
             if e_gestor:
                 with col_ctrl:
                     st.markdown('<div class="btn-gestao">', unsafe_allow_html=True)
-                    if st.button("✏️ Editar", key=f"btn_ed_{i}"):
-                        st.session_state[edit_key] = True
-                        st.rerun()
+                    if st.button("✏️ Editar", key=f"btn_ed_{i}"): st.session_state[edit_key] = True; st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
                     st.markdown('<div class="btn-perigo">', unsafe_allow_html=True)
-                    if st.button("🗑️ Excluir", key=f"btn_del_{i}"):
-                        feed.pop(i); salvar_dados(feed, FEED_FILE); st.rerun()
+                    if st.button("🗑️ Excluir", key=f"btn_del_{i}"): feed.pop(i); salvar_dados(feed, FEED_FILE); st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
 
             if post.get('img'): st.image(post['img'])
             
-            # Interações
+            # Curtidas com log de usuário
+            likes = post.get('curtidas_usuarios', [])
             c_lk, _ = st.columns([0.15, 0.85])
-            if c_lk.button(f"❤️ {post.get('curtidas', 0)}", key=f"lk_{i}"):
-                feed[i]['curtidas'] = post.get('curtidas', 0) + 1
-                salvar_dados(feed, FEED_FILE); st.rerun()
-
+            if c_lk.button(f"❤️ {len(likes)}", key=f"lk_{i}"):
+                if st.session_state.user_logado not in likes:
+                    likes.append(st.session_state.user_logado)
+                    feed[i]['curtidas_usuarios'] = likes
+                    salvar_dados(feed, FEED_FILE); st.rerun()
+            
+            # Comentários
             coments = post.get('comentarios', [])
             with st.expander(f"💬 Comentários ({len(coments)})"):
                 for c in coments:
                     st.markdown(f'<div class="comment-box"><b>{c["user"]}:</b> {c["txt"]}</div>', unsafe_allow_html=True)
                 nc = st.text_input("Escreva um comentário...", key=f"in_{i}")
-                if st.button("Enviar", key=f"bt_{i}"):
+                if st.button("Publicar Comentário", key=f"bt_{i}"):
                     if nc:
                         if 'comentarios' not in feed[i]: feed[i]['comentarios'] = []
-                        feed[i]['comentarios'].append({"user": st.session_state.user_logado, "txt": nc})
+                        feed[i]['comentarios'].append({"user": st.session_state.user_logado, "txt": nc, "data": datetime.now().strftime("%d/%m/%Y %H:%M")})
                         salvar_dados(feed, FEED_FILE); st.rerun()
 
 # --- TELA: FORMAÇÃO CONTINUADA ---
 elif menu == "🎓 Formação Continuada":
-    st.title("🎓 Treinamentos Disponíveis")
+    st.title("🎓 Centro de Treinamento")
     treinos = carregar_dados(TREINAMENTOS_FILE)
     
-    if not treinos: st.info("Nenhum treinamento publicado.")
+    if not treinos: st.info("Nenhum treinamento disponível no momento.")
     
     for idx, t in enumerate(treinos):
         with st.expander(f"📺 MÓDULO: {t['titulo']}"):
             st.video(t['video_path'])
             st.divider()
-            st.subheader("📝 Avaliação de Conhecimento")
+            st.subheader("📝 Prova de Avaliação")
             
-            respostas = {}
+            respostas_agente = {}
             for q_idx, q in enumerate(t['questoes']):
-                respostas[q_idx] = st.radio(f"{q_idx+1}. {q['pergunta']}", q['opcoes'], key=f"q_{idx}_{q_idx}")
+                respostas_agente[q_idx] = st.radio(f"{q_idx+1}. {q['pergunta']}", q['opcoes'], key=f"q_{idx}_{q_idx}")
             
-            if st.button("Finalizar e Enviar", key=f"btn_p_{idx}"):
-                acertos = sum(1 for q_idx, q in enumerate(t['questoes']) if respostas[q_idx] == q['correta'])
+            if st.button("Enviar Avaliação", key=f"btn_p_{idx}"):
+                acertos = sum(1 for q_idx, q in enumerate(t['questoes']) if respostas_agente[q_idx] == q['correta'])
                 nota = (acertos / len(t['questoes'])) * 10
                 notas = carregar_dados(NOTAS_FILE)
                 notas.append({"usuario": st.session_state.user_logado, "treinamento": t['titulo'], "nota": nota, "data": datetime.now().strftime("%d/%m/%Y %H:%M")})
                 salvar_dados(notas, NOTAS_FILE)
-                if nota >= 7: st.success(f"Excelente! Nota: {nota}")
-                else: st.error(f"Nota: {nota}. Revise o vídeo e tente novamente.")
+                if nota >= 7: st.success(f"Aprovado! Nota: {nota}")
+                else: st.error(f"Nota: {nota}. Assista ao vídeo novamente para melhorar seu desempenho.")
 
 # --- TELA: GESTÃO & REPORTS ---
-elif menu == "⚙️ Gestão & Reports":
+elif menu == "📊 Gestão & Reports":
     if e_gestor:
-        t_feed, t_treino, t_rep = st.tabs(["📢 Novo Post", "🎓 Novo Treinamento", "📊 Relatórios"])
+        t_feed, t_aula, t_rep = st.tabs(["📢 Novo Comunicado", "🎓 Criar Treinamento", "📉 Relatórios Detalhados"])
         
         with t_feed:
-            msg = st.text_area("O que deseja comunicar?")
-            img = st.file_uploader("Anexar Imagem", type=['png', 'jpg', 'jpeg'])
-            if st.button("Publicar no Feed"):
-                img_b64 = f"data:image/png;base64,{base64.b64encode(img.read()).decode()}" if img else None
+            st.subheader("Publicar no Feed")
+            msg_feed = st.text_area("Texto do comunicado")
+            img_feed = st.file_uploader("Upload de imagem (Opcional)", type=['png', 'jpg', 'jpeg'])
+            if st.button("Enviar para a Operação"):
+                img_b64 = f"data:image/png;base64,{base64.b64encode(img_feed.read()).decode()}" if img_feed else None
                 f = carregar_dados(FEED_FILE)
-                f.insert(0, {"id": datetime.now().strftime("%Y%m%d%H%M%S"), "data": datetime.now().strftime("%d/%m/%Y %H:%M"), "msg": msg, "img": img_b64, "curtidas": 0, "comentarios": []})
-                salvar_dados(f, FEED_FILE); st.success("Postado!"); st.rerun()
+                f.insert(0, {"id": datetime.now().strftime("%Y%m%d%H%M%S"), "data": datetime.now().strftime("%d/%m/%Y %H:%M"), "msg": msg_feed, "img": img_b64, "curtidas_usuarios": [], "comentarios": []})
+                salvar_dados(f, FEED_FILE); st.success("Comunicado publicado!"); st.rerun()
 
-        with t_treino:
-            tit = st.text_input("Título do Treinamento")
-            vid = st.file_uploader("Upload do Vídeo", type=['mp4', 'mov', 'avi'])
-            if 'temp_q' not in st.session_state: st.session_state.temp_q = []
+        with t_aula:
+            st.subheader("Configurar Novo Módulo")
+            titulo_aula = st.text_input("Nome do Treinamento")
+            video_aula = st.file_uploader("Upload do Arquivo de Vídeo", type=['mp4', 'mov', 'avi'])
             
-            st.write("--- Perguntas ---")
-            perg = st.text_input("Pergunta")
-            o1, o2, o3 = st.text_input("Opção A"), st.text_input("Opção B"), st.text_input("Opção C")
-            corr = st.selectbox("Correta", [o1, o2, o3])
-            if st.button("➕ Adicionar Pergunta"):
-                st.session_state.temp_q.append({"pergunta": perg, "opcoes": [o1, o2, o3], "correta": corr})
-                st.toast("Adicionada!"); st.rerun()
+            if 'temp_perguntas' not in st.session_state: st.session_state.temp_perguntas = []
             
-            st.write(f"Questões na prova: {len(st.session_state.temp_q)}")
-            if st.button("💾 SALVAR MÓDULO COMPLETO"):
-                if tit and vid and st.session_state.temp_q:
-                    v_path = os.path.join(VIDEO_DIR, vid.name)
-                    with open(v_path, "wb") as f: f.write(vid.getbuffer())
-                    d = carregar_dados(TREINAMENTOS_FILE)
-                    d.append({"titulo": tit, "video_path": v_path, "questoes": st.session_state.temp_q})
-                    salvar_dados(d, TREINAMENTOS_FILE)
-                    st.session_state.temp_q = []; st.success("Publicado!"); st.rerun()
+            st.info(f"Questões adicionadas: {len(st.session_state.temp_perguntas)}")
+            with st.container():
+                p_txt = st.text_input("Pergunta da Prova")
+                c1, c2, c3 = st.columns(3)
+                opA = c1.text_input("Opção A")
+                opB = c2.text_input("Opção B")
+                opC = c3.text_input("Opção C")
+                correta = st.selectbox("Alternativa Correta", [opA, opB, opC])
+                
+                if st.button("➕ Adicionar Pergunta à Prova"):
+                    if p_txt and opA:
+                        st.session_state.temp_perguntas.append({"pergunta": p_txt, "opcoes": [opA, opB, opC], "correta": correta})
+                        st.rerun()
+
+            if st.button("💾 SALVAR TREINAMENTO COMPLETO"):
+                if titulo_aula and video_aula and st.session_state.temp_perguntas:
+                    path = os.path.join(VIDEO_DIR, video_aula.name)
+                    with open(path, "wb") as f: f.write(video_aula.getbuffer())
+                    
+                    dados_t = carregar_dados(TREINAMENTOS_FILE)
+                    dados_t.append({"titulo": titulo_aula, "video_path": path, "questoes": st.session_state.temp_perguntas})
+                    salvar_dados(dados_t, TREINAMENTOS_FILE)
+                    st.session_state.temp_perguntas = []
+                    st.success("Módulo de treinamento criado com sucesso!"); st.rerun()
 
         with t_rep:
-            st.subheader("Notas das Provas")
-            df = pd.DataFrame(carregar_dados(NOTAS_FILE))
-            if not df.empty:
-                st.dataframe(df, use_container_width=True)
-                st.download_button("Exportar CSV", df.to_csv(index=False), "notas.csv")
+            st.subheader("📊 Engajamento do Feed (Logs de Interação)")
+            feed_raw = carregar_dados(FEED_FILE)
+            logs = []
+            for p in feed_raw:
+                resumo = p.get('msg', '')[:40] + "..."
+                for u_lk in p.get('curtidas_usuarios', []):
+                    logs.append({"Data": p.get('data'), "Post": resumo, "Usuário": u_lk, "Ação": "Curtiu ❤️"})
+                for com in p.get('comentarios', []):
+                    logs.append({"Data": com.get('data'), "Post": resumo, "Usuário": com.get('user'), "Ação": f"Comentou: {com.get('txt')}"})
+            
+            if logs:
+                df_logs = pd.DataFrame(logs)
+                st.dataframe(df_logs, use_container_width=True)
+                st.download_button("Baixar Logs de Interação", df_logs.to_csv(index=False), "logs_interacao.csv")
+            
+            st.divider()
+            st.subheader("📝 Notas das Avaliações")
+            df_notas = pd.DataFrame(carregar_dados(NOTAS_FILE))
+            if not df_notas.empty:
+                st.dataframe(df_notas, use_container_width=True)
+                st.download_button("Baixar Notas (CSV)", df_notas.to_csv(index=False), "notas_treinamento.csv")
     else:
-        st.error("Área restrita à Gestão.")
+        st.error("Acesso restrito ao time de Gestão.")
+    
