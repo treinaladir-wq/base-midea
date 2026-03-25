@@ -59,7 +59,7 @@ if not st.session_state.autenticado:
 e_gestor = "_admin" in st.session_state.user_logado or "_treina" in st.session_state.user_logado
 
 # 4. NAVEGAÇÃO
-st.sidebar.image("https://lh3.googleusercontent.com/d/1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei", width=120)
+st.sidebar.image("https://lh3.googleusercontent.com/d/1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei", width=300)
 st.sidebar.markdown(f"👤 **Bem-vindo, {st.session_state.user_logado}, ao Portal Midea**")
 menu = st.sidebar.radio("Menu Principal", ["📢 Feed da Operação", "🎓 Formação Continuada", "📊 Gestão & Reports"])
 
