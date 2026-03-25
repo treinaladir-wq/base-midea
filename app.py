@@ -75,7 +75,9 @@ if URL_LOGO and ID_DRIVE_LOGO:
 else:
     st.sidebar.title("❄️ Midea")
 
-st.sidebar.markdown(f"👤 **Bem-vindo, {st.session_state.user_logado}**")
+nome_exibicao = st.session_state.user_logado.split('_')[0].capitalize()
+
+st.sidebar.markdown(f"👤 **Bem-vindo, {nome_exibicao}**")
 menu = st.sidebar.radio("Navegação", ["📢 Feed da Operação", "🎓 Formação Continuada", "⚙️ Gestão & Reports"])
 
 if st.sidebar.button("Sair"):
