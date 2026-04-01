@@ -7,7 +7,7 @@ from datetime import datetime
 
 # --- CONFIGURAÇÃO DE ACESSO RÁPIDO (LOGO) ---
 # Substitua pela URL da imagem da Midea se necessário
-URL_LOGO = "https://logodownload.org/wp-content/uploads/2018/01/midea-logo.png" 
+URL_LOGO = "https://lh3.googleusercontent.com/d/1ByGFCJI5ZkuakRG5E1DnCExEwBXzykei" 
 
 # 1. CONFIGURAÇÃO VISUAL
 st.set_page_config(page_title="Midea | Operação & Treinamento", layout="wide", page_icon="❄️")
